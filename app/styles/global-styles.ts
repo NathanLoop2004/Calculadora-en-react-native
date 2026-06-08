@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import { Colors } from "../constants/Colors";
+import Spacing from "../constants/Spacing";
 
 export const globalStyles = StyleSheet.create({
   background: {
@@ -10,7 +11,7 @@ export const globalStyles = StyleSheet.create({
   calculatorContainer: {
     flex: 1,
     justifyContent: "flex-end",
-    paddingBottom: 20,
+    paddingBottom: Spacing.xl,
   },
   mainResult: {
     color: Colors.textPrimary,
@@ -24,28 +25,31 @@ export const globalStyles = StyleSheet.create({
     fontSize: 40,
     textAlign: "right",
     fontWeight: "400",
-    fontFamily: "SpaceMono",
+   // fontFamily: "SpaceMono",
   },
 
   row: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 18,
-    paddingHorizontal: 10,
+    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.md,
   },
   button: {
-   height: 80,
-   width: 80,
-   backgroundColor: Colors.darkGray,
-   borderRadius: 100,
-   justifyContent: "center"
+    height: 75,
+    width: 65,
+    backgroundColor: Colors.darkGray,
+    borderRadius: 9999, // ensure perfect circle for square buttons
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: Spacing.sm,
+    borderColor: Colors.lightGray,
   },
   buttonText: {
     color: Colors.textPrimary,
     padding: 10,
-    fontSize: 30,
+    fontSize: 20,
     textAlign: "center",
-    fontWeight: '300',
+    fontWeight: '400',
   }
 
 });
