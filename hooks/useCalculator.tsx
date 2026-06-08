@@ -25,6 +25,7 @@ export const useCalculator = () => {
 
 
     const lastOperation = useRef<Operator | null>(null);
+    const hasTypedCurrentNumber = useRef(false);
     
     useEffect(() => {
         if(!lastOperation.current){
@@ -36,7 +37,7 @@ export const useCalculator = () => {
         const lastToken = currentFormula.split(' ').at(-1) ?? '';
 
         // If we are waiting for the next operand, keep "a op" as-is.
-        if(number === '0' && operators.includes(lastToken as Operator)) return;
+        if(number === '0' && operators.includes(lastToken as Operator) && !hasTypedCurrentNumber.current) return;
 
         // If formula ends with operator, append the typed number.
         if(operators.includes(lastToken as Operator)){
@@ -59,6 +60,7 @@ export const useCalculator = () => {
         setPrevNumber('0');
         setFormula('0');
         lastOperation.current = null;
+        hasTypedCurrentNumber.current = false;
     }
 
     const toggleSign = () => {
@@ -73,7 +75,69 @@ export const useCalculator = () => {
     }
 
     const deleteLast = () => {
+        const evaluateParts = (parts: string[]) => {
+            if (parts.length === 0) return null;
+
+            let result = Number(parts[0]);
+            if (isNaN(result)) return null;
+
+            for (let i = 1; i < parts.length; i += 2) {
+                const operation = parts[i] as Operator;
+                const nextValue = parts[i + 1];
+
+                if (!nextValue || !operators.includes(operation)) return null;
+                result = operate(`${result}`, nextValue, operation);
+            }
+
+            return result;
+        };
+
+        const formulaParts = formula.trim().split(' ').filter(Boolean);
+        const lastToken = formulaParts.at(-1) ?? '';
+
+        // If formula ends with an operator (e.g. "87 × 8 ×"),
+        // remove that operator and restore editable numeric state.
+        if(number === '0' && operators.includes(lastToken as Operator)){
+            formulaParts.pop();
+
+            if(formulaParts.length === 0){
+                clean();
+                return;
+            }
+
+            const nextFormula = formulaParts.join(' ');
+            const nextNumber = formulaParts.at(-1) ?? '0';
+
+            setFormula(nextFormula);
+            setNumber(nextNumber);
+            hasTypedCurrentNumber.current = true;
+
+            if(formulaParts.length === 1){
+                setPrevNumber(nextNumber);
+                lastOperation.current = null;
+                hasTypedCurrentNumber.current = true;
+                return;
+            }
+
+            const pendingOperation = formulaParts[formulaParts.length - 2] as Operator;
+            const leftParts = formulaParts.slice(0, -2);
+            const leftValue = leftParts.length > 0 ? evaluateParts(leftParts) : null;
+
+            setPrevNumber(leftValue !== null ? `${leftValue}` : nextNumber);
+            lastOperation.current = operators.includes(pendingOperation) ? pendingOperation : null;
+            return;
+        }
+
         if(number.length === 1 || (number.length === 2 && number.includes('-'))){
+            // In expressions like "87 × 8 × 9", deleting the last single digit
+            // should go back to "87 × 8 ×" instead of "87 × 8 × 0".
+            if(lastOperation.current && formulaParts.length >= 3 && formulaParts.at(-1) === number){
+                setFormula(formulaParts.slice(0, -1).join(' '));
+                setNumber('0');
+                hasTypedCurrentNumber.current = false;
+                return;
+            }
+
             setNumber('0');
         } else {
             setNumber(number.slice(0, -1));
@@ -135,32 +199,55 @@ export const useCalculator = () => {
     
     
     const buildNumber = ( numberString: string ) => {
+        const input = numberString === ',' ? '.' : numberString;
+
         //Verificar si ya esxiste el punto decimal
-        if(number.includes('.')&& numberString === ".")return;
+        if(number.includes('.')&& input === ".")return;
         
         if(number === '0' || number === '-0'){  
              
-            if(numberString === '.'){
-                return setNumber(number + numberString);
+            if(input === '.'){
+                hasTypedCurrentNumber.current = true;
+                return setNumber(number + input);
             }
 
             //Evaluar si es otro 0 y no hay punto
-            if(numberString === '0' && !number.includes('.'))return;
+            if(input === '0' && !number.includes('.')){
+                if(!hasTypedCurrentNumber.current){
+                    hasTypedCurrentNumber.current = true;
+                    if(lastOperation.current){
+                        setFormula((currentFormula) => {
+                            const trimmed = currentFormula.trim();
+                            const lastToken = trimmed.split(' ').at(-1) ?? '';
+
+                            if(operators.includes(lastToken as Operator)){
+                                return `${trimmed} 0`;
+                            }
+
+                            return currentFormula;
+                        });
+                    }
+
+                    return setNumber('0');
+                }
+
+                return;
+            }
             
 
             //Evaluar si es diferente de 0 y no hay punto y es el primer numero
-            if(numberString !== "0" && !number.includes('.')){
-                if(number === '-0') return setNumber(`-${numberString}`);
-                return setNumber(numberString);
+            if(input !== "0" && !number.includes('.')){
+                hasTypedCurrentNumber.current = true;
+                if(number === '-0') return setNumber(`-${input}`);
+                return setNumber(input);
             }
-            return setNumber(number + numberString);
+            hasTypedCurrentNumber.current = true;
+            return setNumber(number + input);
         }
 
     
-
-
-
-        setNumber(number + numberString);
+        hasTypedCurrentNumber.current = true;
+        setNumber(number + input);
     }
     
 
@@ -187,15 +274,17 @@ export const useCalculator = () => {
    const setLastNumber = () => {
         const currentValue = number.endsWith('.') ? number.slice(0, -1) : number;
 
-        if(lastOperation.current && prevNumber !== '0'){
+       if(lastOperation.current){
             const result = operate(prevNumber, currentValue, lastOperation.current);
             setPrevNumber(`${result}`);
             setNumber('0');
+          hasTypedCurrentNumber.current = false;
             return;
         }
 
         setPrevNumber(currentValue);
         setNumber('0');
+       hasTypedCurrentNumber.current = false;
    }
    const multiplyOperation = () => {
     setOperation(Operator.multiply);
@@ -216,6 +305,7 @@ export const useCalculator = () => {
     setNumber(`${result}`);
     setPrevNumber(`${result}`);
     lastOperation.current = null;
+    hasTypedCurrentNumber.current = false;
    }
 
     return {
